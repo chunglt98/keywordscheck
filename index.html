@@ -296,237 +296,223 @@
     </div>
 
     <script>
-        // Keyword Detector Implementation
-        class KeywordDetector {
-            constructor() {
-                this.homoglyphMap = {
-                    // Cyrillic to Latin
-                    'а': 'a', 'е': 'e', 'о': 'o', 'р': 'p', 'с': 'c',
-                    'х': 'x', 'у': 'y', 'і': 'i', 'ј': 'j',
-                    
-                    // Fullwidth to halfwidth
-                    'ａ': 'a', 'ｂ': 'b', 'ｃ': 'c', 'ｄ': 'd', 'ｅ': 'e',
-                    'ｆ': 'f', 'ｇ': 'g', 'ｈ': 'h', 'ｉ': 'i', 'ｊ': 'j',
-                    'ｋ': 'k', 'ｌ': 'l', 'ｍ': 'm', 'ｎ': 'n', 'ｏ': 'o',
-                    'ｐ': 'p', 'ｑ': 'q', 'ｒ': 'r', 'ｓ': 's', 'ｔ': 't',
-                    'ｕ': 'u', 'ｖ': 'v', 'ｗ': 'w', 'ｘ': 'x', 'ｙ': 'y', 'ｚ': 'z',
-                    
-                    // Greek to Latin
-                    'α': 'a', 'ο': 'o', 'ρ': 'p', 'ν': 'v',
-                    
-                    // Other confusables
-                    'ℓ': 'l', '𝐚': 'a', '𝐛': 'b', '𝗮': 'a'
-                };
-                
-                this.leetspeakMap = {
-                    '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's',
-                    '6': 'g', '7': 't', '8': 'b', '9': 'g',
-                    '@': 'a', '$': 's', '!': 'i', '|': 'l', '+': 't'
-                };
+    class KeywordDetector {
+        constructor() {
+            this.homoglyphMap = {
+                'а': 'a', 'е': 'e', 'о': 'o', 'р': 'p', 'с': 'c',
+                'х': 'x', 'у': 'y', 'і': 'i', 'ј': 'j',
+                'ａ': 'a', 'ｂ': 'b', 'ｃ': 'c', 'ｄ': 'd', 'ｅ': 'e',
+                'ｆ': 'f', 'ｇ': 'g', 'ｈ': 'h', 'ｉ': 'i', 'ｊ': 'j',
+                'ｋ': 'k', 'ｌ': 'l', 'ｍ': 'm', 'ｎ': 'n', 'ｏ': 'o',
+                'ｐ': 'p', 'ｑ': 'q', 'ｒ': 'r', 'ｓ': 's', 'ｔ': 't',
+                'ｕ': 'u', 'ｖ': 'v', 'ｗ': 'w', 'ｘ': 'x', 'ｙ': 'y', 'ｚ': 'z',
+                'α': 'a', 'ο': 'o', 'ρ': 'p', 'ν': 'v',
+                'ℓ': 'l', '𝐚': 'a', '𝐛': 'b', '𝗮': 'a'
+            };
+
+            this.leetspeakMap = {
+                '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's',
+                '6': 'g', '7': 't', '8': 'b', '9': 'g',
+                '@': 'a', '$': 's', '!': 'i', '|': 'l', '+': 't'
+            };
+        }
+
+        lowercase(text) {
+            return text.toLowerCase();
+        }
+
+        removeInvisibleChars(text) {
+            return text
+                .replace(/[\u200B-\u200D\uFEFF]/g, '')
+                .replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, ' ')
+                .replace(/[\u00AD]/g, '');
+        }
+
+        removeDiacritics(text) {
+            return text
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .normalize('NFC');
+        }
+
+        normalizeHomoglyphs(text) {
+            return text.replace(/./g, char => this.homoglyphMap[char] || char);
+        }
+
+        removeSeparators(text) {
+          return text.replace(/[.\-_@#$%^&*()+=|\\\/]/g, '');
+        }
+
+        fixCharacterSpacing(text) {
+            return text.replace(/\b(?:\w\s){2,}\w\b/g, match => match.replace(/\s+/g, ''));
+        }
+
+        normalizeLeetspeak(text) {
+            return text.replace(/[0-9@$!|+]/g, char => this.leetspeakMap[char] || char);
+        }
+
+        normalize(text, includeDiacritics = false) {
+            const steps = [];
+            let result = text;
+            steps.push({ step: 'Original', text: result });
+
+            result = this.lowercase(result);
+            steps.push({ step: '1. Lowercase', text: result });
+
+            result = this.removeInvisibleChars(result);
+            steps.push({ step: '2. Remove Invisible Chars', text: result });
+
+            if (includeDiacritics) {
+                result = this.removeDiacritics(result);
+                steps.push({ step: '2.5. Remove Diacritics', text: result });
             }
 
-            // Step 1: Lowercase
-            lowercase(text) {
-                return text.toLowerCase();
-            }
+            result = this.normalizeHomoglyphs(result);
+            steps.push({ step: '3. Normalize Homoglyphs', text: result });
 
-            // Step 2: Remove Invisible Characters
-            removeInvisibleChars(text) {
-                return text
-                    .replace(/[\u200B-\u200D\uFEFF]/g, '') // Zero-width chars
-                    .replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, ' ') // Various spaces
-                    .replace(/[\u00AD]/g, ''); // Soft hyphens
-            }
+            result = this.removeSeparators(result);
+            steps.push({ step: '4. Remove Separators', text: result });
 
-            // Step 2.5: Diacritic Normalization (Vietnamese)
-            removeDiacritics(text) {
-                return text
-                    .normalize('NFD')                    // Decompose
-                    .replace(/[\u0300-\u036f]/g, '')     // Remove combining diacritical marks
-                    .normalize('NFC');                   // Recompose
-            }
+            result = this.fixCharacterSpacing(result);
+            steps.push({ step: '5. Fix Character Spacing', text: result });
 
-            // Step 3: Normalize Homoglyphs
-            normalizeHomoglyphs(text) {
-                return text.replace(/./g, char => this.homoglyphMap[char] || char);
-            }
+            result = this.normalizeLeetspeak(result);
+            steps.push({ step: '6. Character Substitution', text: result });
 
-            // Step 4: Remove Separators
-            removeSeparators(text) {
-                return text.replace(
-                    /\b(\w)[.\-_@#$%^&*()+=|\\\/]+(\w)[.\-_@#$%^&*()+=|\\\/]+(\w)[.\-_@#$%^&*()+=|\\\/]+(\w)([.\-_@#$%^&*()+=|\\\/]+\w)*\b/g,
-                    (match) => match.replace(/[^a-z0-9]/gi, '')
-                );
-            }
+            result = result.replace(/\s+/g, ' ').trim();
+            steps.push({ step: 'Final', text: result });
 
-            // Step 5: Fix Character Spacing
-            fixCharacterSpacing(text) {
-  return text.replace(/\b(?:\w\s*){3,}\b/g, (match) => {
-    const compact = match.replace(/\s+/g, '');
-    if (/^[a-z]{3,}$/i.test(compact)) {
-      return compact;
+            return { normalized: result, steps };
+        }
+
+
+        // Step 7: Detect word-breaking with flexible pattern
+        detectWordBreaking(content, keyword, includeDiacritics = false, strictMatch = true) {
+            const normContent = this.normalize(content, includeDiacritics).normalized;
+            const normKeyword = this.normalize(keyword, includeDiacritics).normalized;
+
+            const keywordParts = normKeyword.split(/\s+/); // Chia keyword theo từ
+            const flexiblePattern = keywordParts.join('[^a-zA-Z0-9]{0,3}'); // Ghép lại với khoảng cách cho phép
+
+            const patternStr = strictMatch
+                ? `\\b${flexiblePattern}\\b`
+                : flexiblePattern;
+
+            const regex = new RegExp(patternStr, 'gi');
+
+            return {
+                detected: regex.test(normContent),
+                regex,
+                normalizedContent: normContent,
+                normalizedKeyword: normKeyword,
+                stepsContent: this.normalize(content, includeDiacritics).steps,
+                stepsKeyword: this.normalize(keyword, includeDiacritics).steps
+            };
+        }
+
+
+
+
+        checkKeyword(content, keyword, includeDiacritics = false) {
+            const result = this.detectWordBreaking(content, keyword, includeDiacritics);
+            return {
+                detected: result.detected,
+                keyword: keyword,
+                originalContent: content,
+                normalizedContent: result.normalizedContent,
+                normalizedKeyword: result.normalizedKeyword,
+                pattern: result.regex.source,
+                includeDiacritics: includeDiacritics,
+                contentSteps: result.stepsContent,
+                keywordSteps: result.stepsKeyword
+            };
+        }
     }
-    return match;
-  });
-}
 
-            // Step 6: Character Substitution (Leetspeak)
-            normalizeLeetspeak(text) {
-                return text.replace(/[0-9@$!|+]/g, char => this.leetspeakMap[char] || char);
-            }
+    // INIT
+    const detector = new KeywordDetector();
 
-            // Complete normalization pipeline
-            normalize(text, includeDiacritics = false) {
-                const steps = [];
-                let result = text;
-                
-                steps.push({ step: 'Original', text: result });
-                
-                result = this.lowercase(result);
-                steps.push({ step: '1. Lowercase', text: result });
-                
-                result = this.removeInvisibleChars(result);
-                steps.push({ step: '2. Remove Invisible Chars', text: result });
-                
-                // Optional: Diacritic normalization
-                if (includeDiacritics) {
-                    result = this.removeDiacritics(result);
-                    steps.push({ step: '2.5. Remove Diacritics', text: result });
-                }
-                
-                result = this.normalizeHomoglyphs(result);
-                steps.push({ step: '3. Normalize Homoglyphs', text: result });
-                
-                result = this.removeSeparators(result);
-                steps.push({ step: '4. Remove Separators', text: result });
-                
-                result = this.fixCharacterSpacing(result);
-                steps.push({ step: '5. Fix Character Spacing', text: result });
-                
-                result = this.normalizeLeetspeak(result);
-                steps.push({ step: '6. Character Substitution', text: result });
-                
-                result = result.replace(/\s+/g, ' ').trim();
-                steps.push({ step: 'Final', text: result });
-                
-                return { normalized: result, steps };
-            }
+    function setExample(keyword, content) {
+        document.getElementById('keyword').value = keyword;
+        document.getElementById('content').value = content;
 
-            // Create word boundary pattern
-            createPattern(keyword, includeDiacritics = false) {
-                const normalizedKeyword = this.normalize(keyword, includeDiacritics).normalized;
-                const escaped = normalizedKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                return new RegExp(`${escaped}`, 'gi');
-            }
+        const hasDiacritics = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(keyword);
+        document.getElementById('includeDiacritics').checked = hasDiacritics;
+    }
 
-            // Main detection function
-            checkKeyword(content, keyword, includeDiacritics = false) {
-                const contentResult = this.normalize(content, includeDiacritics);
-                const keywordResult = this.normalize(keyword, includeDiacritics);
-                const pattern = this.createPattern(keyword, includeDiacritics);
-                
-                const isMatch = pattern.test(contentResult.normalized);
-                
-                return {
-                    detected: isMatch,
-                    keyword: keyword,
-                    originalContent: content,
-                    normalizedContent: contentResult.normalized,
-                    normalizedKeyword: keywordResult.normalized,
-                    pattern: pattern.source,
-                    contentSteps: contentResult.steps,
-                    keywordSteps: keywordResult.steps,
-                    includeDiacritics: includeDiacritics
-                };
-            }
+    document.getElementById('detectionForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const keyword = document.getElementById('keyword').value.trim();
+        const content = document.getElementById('content').value.trim();
+        const includeDiacritics = document.getElementById('includeDiacritics').checked;
+
+        if (!keyword || !content) {
+            alert('Vui lòng nhập đầy đủ keyword và content!');
+            return;
         }
 
-        // Initialize detector
-        const detector = new KeywordDetector();
+        const result = detector.checkKeyword(content, keyword, includeDiacritics);
+        displayResults(result);
+    });
 
-        // Set example data
-        function setExample(keyword, content) {
-            document.getElementById('keyword').value = keyword;
-            document.getElementById('content').value = content;
-            
-            // Auto-check diacritics for Vietnamese keywords
-            const hasDiacritics = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(keyword);
-            document.getElementById('includeDiacritics').checked = hasDiacritics;
-        }
+    function displayResults(result) {
+        const resultsDiv = document.getElementById('results');
+        const resultContent = document.getElementById('result-content');
 
-        // Handle form submission
-        document.getElementById('detectionForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const keyword = document.getElementById('keyword').value.trim();
-            const content = document.getElementById('content').value.trim();
-            const includeDiacritics = document.getElementById('includeDiacritics').checked;
-            
-            if (!keyword || !content) {
-                alert('Vui lòng nhập đầy đủ keyword và content!');
-                return;
-            }
-            
-            const result = detector.checkKeyword(content, keyword, includeDiacritics);
-            displayResults(result);
-        });
+        const statusClass = result.detected ? 'detected' : 'not-detected';
+        const statusText = result.detected ? 'DETECTED' : 'NOT DETECTED';
+        const statusBadgeClass = result.detected ? 'status-detected' : 'status-not-detected';
+        const statusIcon = result.detected ? '🚨' : '✅';
 
-        function displayResults(result) {
-            const resultsDiv = document.getElementById('results');
-            const resultContent = document.getElementById('result-content');
-            
-            const statusClass = result.detected ? 'detected' : 'not-detected';
-            const statusText = result.detected ? 'DETECTED' : 'NOT DETECTED';
-            const statusBadgeClass = result.detected ? 'status-detected' : 'status-not-detected';
-            const statusIcon = result.detected ? '🚨' : '✅';
-            
-            resultContent.innerHTML = `
-                <div class="result-item ${statusClass}">
-                    <strong>Kết quả:</strong> ${statusIcon} <span class="status-badge ${statusBadgeClass}">${statusText}</span>
-                </div>
-                
-                <div class="result-item">
-                    <strong>🎯 Keyword:</strong> "${result.keyword}"
-                </div>
-                
-                <div class="result-item">
-                    <strong>📝 Original Content:</strong> "${result.originalContent}"
-                </div>
-                
-                <div class="result-item">
-                    <strong>🔄 Normalized Content:</strong> "${result.normalizedContent}"
-                </div>
-                
-                <div class="result-item">
-                    <strong>🔄 Normalized Keyword:</strong> "${result.normalizedKeyword}"
-                </div>
-                
-                <div class="result-item">
-                    <strong>🎯 Regex Pattern:</strong> <code>${result.pattern}</code>
-                </div>
-                
-                <div class="result-item">
-                    <strong>⚙️ Diacritic Normalization:</strong> ${result.includeDiacritics ? '✅ Enabled' : '❌ Disabled'}
-                </div>
-                
-                <div class="pipeline-steps">
-                    <h3>🔧 Content Normalization Pipeline:</h3>
-                    ${result.contentSteps.map(step => 
-                        `<div class="step"><strong>${step.step}:</strong> "${step.text}"</div>`
-                    ).join('')}
-                </div>
-                
-                <div class="pipeline-steps">
-                    <h3>🎯 Keyword Normalization Pipeline:</h3>
-                    ${result.keywordSteps.map(step => 
-                        `<div class="step"><strong>${step.step}:</strong> "${step.text}"</div>`
-                    ).join('')}
-                </div>
-            `;
-            
-            resultsDiv.style.display = 'block';
-            resultsDiv.scrollIntoView({ behavior: 'smooth' });
-        }
-    </script>
+        resultContent.innerHTML = `
+            <div class="result-item ${statusClass}">
+                <strong>Kết quả:</strong> ${statusIcon} <span class="status-badge ${statusBadgeClass}">${statusText}</span>
+            </div>
+
+            <div class="result-item">
+                <strong>🎯 Keyword:</strong> "${result.keyword}"
+            </div>
+
+            <div class="result-item">
+                <strong>📝 Original Content:</strong> "${result.originalContent}"
+            </div>
+
+            <div class="result-item">
+                <strong>🔄 Normalized Content:</strong> "${result.normalizedContent}"
+            </div>
+
+            <div class="result-item">
+                <strong>🔄 Normalized Keyword:</strong> "${result.normalizedKeyword}"
+            </div>
+
+            <div class="result-item">
+                <strong>🎯 Regex Pattern:</strong> <code>${result.pattern}</code>
+            </div>
+
+            <div class="result-item">
+                <strong>⚙️ Diacritic Normalization:</strong> ${result.includeDiacritics ? '✅ Enabled' : '❌ Disabled'}
+            </div>
+
+            <div class="pipeline-steps">
+                <h3>🔧 Content Normalization Pipeline:</h3>
+                ${result.contentSteps.map(step =>
+                    `<div class="step"><strong>${step.step}:</strong> "${step.text}"</div>`
+                ).join('')}
+            </div>
+
+            <div class="pipeline-steps">
+                <h3>🎯 Keyword Normalization Pipeline:</h3>
+                ${result.keywordSteps.map(step =>
+                    `<div class="step"><strong>${step.step}:</strong> "${step.text}"</div>`
+                ).join('')}
+            </div>
+        `;
+
+        resultsDiv.style.display = 'block';
+        resultsDiv.scrollIntoView({ behavior: 'smooth' });
+    }
+</script>
+
 </body>
 </html>
