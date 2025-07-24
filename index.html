@@ -313,7 +313,7 @@
             this.leetspeakMap = {
                 '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's',
                 '6': 'g', '7': 't', '8': 'b', '9': 'g',
-                '@': 'a', '$': 's', '!': 'i', '|': 'l', '+': 't'
+                '$': 's', '!': 'i', '|': 'l', '+': 't'
             };
         }
 
@@ -371,14 +371,16 @@
             result = this.normalizeHomoglyphs(result);
             steps.push({ step: '3. Normalize Homoglyphs', text: result });
 
+            result = this.normalizeLeetspeak(result);
+            steps.push({ step: '4. Character Substitution', text: result });
+
             result = this.removeSeparators(result);
-            steps.push({ step: '4. Remove Separators', text: result });
+            steps.push({ step: '5. Remove Separators', text: result });
 
             result = this.fixCharacterSpacing(result);
-            steps.push({ step: '5. Fix Character Spacing', text: result });
+            steps.push({ step: '6. Fix Character Spacing', text: result });
 
-            result = this.normalizeLeetspeak(result);
-            steps.push({ step: '6. Character Substitution', text: result });
+
 
             result = result.replace(/\s+/g, ' ').trim();
             steps.push({ step: 'Final', text: result });
