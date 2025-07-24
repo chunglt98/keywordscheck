@@ -243,27 +243,28 @@
     <div class="container">
         <div class="header">
             <h1>🔍 Keyword Detection Tool</h1>
-            <p>Test keyword detection với pipeline normalization mới + Diacritic Support</p>
+            <p>Test keyword detection theo Spec 202507 chính thức - 6 bước pipeline chuẩn</p>
         </div>
 
         <div class="form-section">
             <div class="example-section">
-                <h3>📋 Quick Test Examples</h3>
-                <button class="example-btn" onclick="setExample('lamtinh', 'l a m t i n h')">Spacing Evasion</button>
-                <button class="example-btn" onclick="setExample('congsan', 'c.o.n.g.s.a.n')">Separator Evasion</button>
-                <button class="example-btn" onclick="setExample('danchu', 'd4nchu')">Leetspeak</button>
+                <h3>📋 Quick Test Examples (Theo Spec Chính Thức)</h3>
+                <button class="example-btn" onclick="setExample('lamtinh', 'l a m t i n h')">Simple Spacing</button>
+                <button class="example-btn" onclick="setExample('lamtinh', 'l am t  i n h')">Irregular Spacing</button>
+                <button class="example-btn" onclick="setExample('congsan', 'c   o  ng   s a    n')">Very Irregular Spacing</button>
+                <button class="example-btn" onclick="setExample('congsan', 'c.o.n_g.s.a.n')">Separator Evasion</button>
+                <button class="example-btn" onclick="setExample('danchu', 'c0ng s@n')">Character Substitution</button>
                 <button class="example-btn" onclick="setExample('lamtinh', 'ｌａｍｔｉｎｈ')">Fullwidth</button>
                 <button class="example-btn" onclick="setExample('congsan', 'соngsan')">Cyrillic Mix</button>
-                <button class="example-btn" onclick="setExample('lamtinh', 'Phường Lý Văn Lâm, Tỉnh Cà Mau')">False Positive Test</button>
-                <button class="example-btn" onclick="setExample('cộng sản', 'cong san')">Vietnamese Diacritics</button>
-                <button class="example-btn" onclick="setExample('cộng sản', 'Gia công sang nhà máy')">Diacritics False Positive</button>
+                <button class="example-btn" onclick="setExample('g88', 'tăng 8.8%')">Spec False Positive 1</button>
+                <button class="example-btn" onclick="setExample('lamtinh', 'Phường Lý Văn Lâm, Tỉnh Cà Mau')">Spec False Positive 2</button>
+                <button class="example-btn" onclick="setExample('congsan', 'quản lý tài sản công sang phát triển thị trường')">Spec False Positive 3</button>
             </div>
 
             <div class="diacritic-examples">
-                <h4>⚠️ Diacritic Normalization Examples:</h4>
-                <p><strong>✅ Good:</strong> "cộng sản" vs "cong san" (evasion detection)</p>
-                <p><strong>❌ Bad:</strong> "cộng sản" vs "Gia công sang nhà máy" (false positive)</p>
-                <p><strong>💡 Tip:</strong> Chỉ bật diacritic normalization khi keyword có dấu và cần detect evasion không dấu</p>
+                <h4>📋 Official Spec Pipeline:</h4>
+                <p><strong>1.</strong> Lowercase → <strong>2.</strong> Remove Invisible → <strong>3.</strong> Normalize Homoglyphs → <strong>4.</strong> Remove Separator → <strong>5.</strong> Fix Character Spacing → <strong>6.</strong> Character Substitution</p>
+                <p><strong>💡 Note:</strong> Diacritic Normalization là optional feature, không có trong spec chính thức</p>
             </div>
 
             <form id="detectionForm">
@@ -279,10 +280,10 @@
 
                 <div class="checkbox-group">
                     <input type="checkbox" id="includeDiacritics" name="includeDiacritics">
-                    <label for="includeDiacritics">🔤 Bỏ dấu tiếng Việt (Diacritic Normalization)</label>
+                    <label for="includeDiacritics">🔤 [OPTIONAL] Bỏ dấu tiếng Việt (Không có trong spec chính thức)</label>
                 </div>
                 <small class="warning-text">
-                    ⚠️ Cảnh báo: Bật tùy chọn này có thể tăng false positive với các từ tiếng Việt thông thường
+                    ⚠️ Feature này không có trong spec 202507 chính thức. Chỉ sử dụng khi cần thiết và hiểu rõ risk.
                 </small>
 
                 <button type="submit" class="btn-submit">🚀 Kiểm tra Keywords</button>
@@ -359,12 +360,38 @@
                 );
             }
 
-            // Step 5: Fix Character Spacing
+            // Step 5: Fix Character Spacing (Global Approach)
             fixCharacterSpacing(text) {
-                return text.replace(
-                    /\b(\w)\s+(\w)\s+(\w)\s+(\w)(\s+\w)*\b/g,
-                    (match) => match.replace(/\s/g, '')
+                console.log('=== CHARACTER SPACING DEBUG ===');
+                console.log('Input:', JSON.stringify(text));
+                
+                // Strategy: Find ALL sequences of single chars separated by spaces
+                let result = text;
+                
+                // Pattern: find any sequence of 4+ single characters with spaces between them
+                // No word boundaries to avoid issues
+                result = result.replace(
+                    /(\s|^)([a-z]\s+[a-z]\s+[a-z]\s+[a-z](?:\s+[a-z])*)(\s|$)/gi,
+                    (match, prefix, sequence, suffix) => {
+                        console.log('Full match:', JSON.stringify(match));
+                        console.log('Sequence:', JSON.stringify(sequence));
+                        
+                        // Extract characters from the sequence
+                        const chars = sequence.match(/[a-z]/gi);
+                        
+                        if (chars && chars.length >= 4) {
+                            const joined = chars.join('');
+                            console.log('Joining chars:', chars, '→', joined);
+                            return prefix + joined + suffix;
+                        }
+                        
+                        return match;
+                    }
                 );
+                
+                console.log('Output:', JSON.stringify(result));
+                console.log('=== END DEBUG ===');
+                return result;
             }
 
             // Step 6: Character Substitution (Leetspeak)
@@ -446,9 +473,8 @@
             document.getElementById('keyword').value = keyword;
             document.getElementById('content').value = content;
             
-            // Auto-check diacritics for Vietnamese keywords
-            const hasDiacritics = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(keyword);
-            document.getElementById('includeDiacritics').checked = hasDiacritics;
+            // Default: không check diacritics (theo spec chính thức)
+            document.getElementById('includeDiacritics').checked = false;
         }
 
         // Handle form submission
