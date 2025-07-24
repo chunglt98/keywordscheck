@@ -361,9 +361,12 @@
 
             // Step 5: Fix Character Spacing
             fixCharacterSpacing(text) {
-  return text.replace(/\b(?:\w\s*){4,}\b/g, (match) => {
+  return text.replace(/\b(?:\w\s*){3,}\b/g, (match) => {
     const compact = match.replace(/\s+/g, '');
-    return compact.length >= 4 ? compact : match;
+    if (/^[a-z]{3,}$/i.test(compact)) {
+      return compact;
+    }
+    return match;
   });
 }
 
