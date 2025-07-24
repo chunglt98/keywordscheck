@@ -344,8 +344,9 @@
         }
 
         fixCharacterSpacing(text) {
-            return text.replace(/\b(?:\w\s){2,}\w\b/g, match => match.replace(/\s+/g, ''));
+            return text.replace(/\b(?:(\w)\s+){2,}\w\b/g, match => match.replace(/\s+/g, ''));
         }
+
 
         normalizeLeetspeak(text) {
             return text.replace(/[0-9@$!|+]/g, char => this.leetspeakMap[char] || char);
