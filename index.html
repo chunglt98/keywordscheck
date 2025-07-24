@@ -416,7 +416,7 @@
             createPattern(keyword, includeDiacritics = false) {
                 const normalizedKeyword = this.normalize(keyword, includeDiacritics).normalized;
                 const escaped = normalizedKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                return new RegExp(`\\b${escaped}\\b`, 'gi');
+                return new RegExp(`${escaped}`, 'gi');
             }
 
             // Main detection function
