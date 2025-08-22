@@ -340,8 +340,8 @@
         }
 
         removeSeparators(text) {
-          return text.replace(/[.\-_@#$%^&*()+=|\\\/]/g, '');
-        }
+            return text.replace(/[.\-_@#$%^&*()+=|\\\/;:,!?'"<>[\]{}~`]/g, '');
+        }    
 
         fixCharacterSpacing(text) {
             return text.replace(/\b(?:(\w)\s+){2,}\w\b/g, match => match.replace(/\s+/g, ''));
