@@ -237,23 +237,53 @@
             color: #856404;
             margin-bottom: 10px;
         }
+
+        .test-critical {
+            background: #ffe6e6;
+            border: 2px solid #ff6b6b;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .test-critical h4 {
+            color: #c92a2a;
+            margin-bottom: 10px;
+        }
+
+        .match-details {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>🔍 Keyword Detection Tool</h1>
-            <p>Test keyword detection với pipeline normalization mới + Diacritic Support</p>
+            <p>Test keyword detection với pipeline normalization mới + Word Boundary Matching</p>
         </div>
 
         <div class="form-section">
+            <div class="test-critical">
+                <h4>🎯 Critical Test Cases (Must Pass):</h4>
+                <button class="example-btn" onclick="setExample('ám sát', 'chúng tôi sẽ giám sát tình hình')">❌ "giám sát" vs "ám sát"</button>
+                <button class="example-btn" onclick="setExample('ám sát', 'hành vi ám sá bất hợp pháp')">❌ "ám sá" vs "ám sát"</button>
+                <button class="example-btn" onclick="setExample('ám sát', 'hành vi ám sát bất hợp pháp')">✅ "ám sát" should hit</button>
+                <button class="example-btn" onclick="setExample('ám sát', 'Ám sát là hành vi bất hợp pháp')">✅ Beginning of sentence</button>
+            </div>
+
             <div class="example-section">
-                <h3>📋 Quick Test Examples</h3>
+                <h3>📋 Other Test Examples</h3>
                 <button class="example-btn" onclick="setExample('lamtinh', 'l a m t i n h')">Spacing Evasion</button>
                 <button class="example-btn" onclick="setExample('congsan', 'c.o.n.g.s.a.n')">Separator Evasion</button>
                 <button class="example-btn" onclick="setExample('danchu', 'd4nchu')">Leetspeak</button>
                 <button class="example-btn" onclick="setExample('lamtinh', 'ｌａｍｔｉｎｈ')">Fullwidth</button>
-                <button class="example-btn" onclick="setExample('congsan', 'соngsan')">Cyrillic Mix</button>
+                <button class="example-btn" onclick="setExample('congsan', 'сongsan')">Cyrillic Mix</button>
                 <button class="example-btn" onclick="setExample('lamtinh', 'Phường Lý Văn Lâm, Tỉnh Cà Mau')">False Positive Test</button>
                 <button class="example-btn" onclick="setExample('cộng sản', 'cong san')">Vietnamese Diacritics</button>
                 <button class="example-btn" onclick="setExample('cộng sản', 'Gia công sang nhà máy')">Diacritics False Positive</button>
@@ -269,7 +299,7 @@
             <form id="detectionForm">
                 <div class="input-group">
                     <label for="keyword">🎯 Keyword cần detect:</label>
-                    <input type="text" id="keyword" name="keyword" placeholder="Ví dụ: lamtinh, congsan, cộng sản..." required>
+                    <input type="text" id="keyword" name="keyword" placeholder="Ví dụ: lamtinh, congsan, ám sát..." required>
                 </div>
 
                 <div class="input-group">
@@ -307,7 +337,7 @@
                 'ｐ': 'p', 'ｑ': 'q', 'ｒ': 'r', 'ｓ': 's', 'ｔ': 't',
                 'ｕ': 'u', 'ｖ': 'v', 'ｗ': 'w', 'ｘ': 'x', 'ｙ': 'y', 'ｚ': 'z',
                 'α': 'a', 'ο': 'o', 'ρ': 'p', 'ν': 'v',
-                'ℓ': 'l', '𝐚': 'a', '𝐛': 'b', '𝗮': 'a'
+                'ℓ': 'l', '𝚊': 'a', '𝚋': 'b', '𝗮': 'a'
             };
 
             this.leetspeakMap = {
@@ -347,7 +377,6 @@
             return text.replace(/\b(?:(\w)\s+){2,}\w\b/g, match => match.replace(/\s+/g, ''));
         }
 
-
         normalizeLeetspeak(text) {
             return text.replace(/[0-9@$!|+]/g, char => this.leetspeakMap[char] || char);
         }
@@ -380,54 +409,107 @@
             result = this.fixCharacterSpacing(result);
             steps.push({ step: '6. Fix Character Spacing', text: result });
 
-
-
             result = result.replace(/\s+/g, ' ').trim();
             steps.push({ step: 'Final', text: result });
 
             return { normalized: result, steps };
         }
 
-
-        // Step 7: Detect word-breaking with flexible pattern
-        detectWordBreaking(content, keyword, includeDiacritics = false, strictMatch = true) {
-            const normContent = this.normalize(content, includeDiacritics).normalized;
-            const normKeyword = this.normalize(keyword, includeDiacritics).normalized;
-
-            const keywordParts = normKeyword.split(/\s+/); // Chia keyword theo từ
-            const flexiblePattern = keywordParts.join('[^a-zA-Z0-9]{0,3}'); // Ghép lại với khoảng cách cho phép
-
-            const patternStr = strictMatch
-                ? `\\b${flexiblePattern}\\b`
-                : flexiblePattern;
-
-            const regex = new RegExp(patternStr, 'gi');
-
+        // Bước 7: Word Boundary Matching - Updated Logic
+        step7_exactMatch(processedContent, processedKeyword) {
+            // Input validation
+            if (!processedKeyword || !processedKeyword.trim()) {
+                return {
+                    detected: false,
+                    details: 'Empty keyword'
+                };
+            }
+            
+            if (!processedContent) {
+                return {
+                    detected: false,
+                    details: 'Empty content'
+                };
+            }
+            
+            // Bước 1: Quick substring check (O(n) - very fast)
+            if (!processedContent.includes(processedKeyword)) {
+                return {
+                    detected: false,
+                    details: `No substring "${processedKeyword}" found in "${processedContent}"`
+                };
+            }
+            
+            // Bước 2: Find all substring positions
+            const positions = [];
+            let startIndex = 0;
+            
+            while (true) {
+                const index = processedContent.indexOf(processedKeyword, startIndex);
+                if (index === -1) break;
+                positions.push(index);
+                startIndex = index + 1;
+            }
+            
+            // Bước 3: Check word boundaries for each position
+            const keywordLength = processedKeyword.length;
+            const vietnameseLetterPattern = /[a-zA-Zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/;
+            
+            const matchDetails = [];
+            
+            for (const pos of positions) {
+                const before = pos > 0 ? processedContent[pos - 1] : '';
+                const after = pos + keywordLength < processedContent.length ? 
+                             processedContent[pos + keywordLength] : '';
+                
+                const beforeIsWordSeparator = pos === 0 || !vietnameseLetterPattern.test(before);
+                const afterIsWordSeparator = pos + keywordLength === processedContent.length || 
+                                           !vietnameseLetterPattern.test(after);
+                
+                matchDetails.push({
+                    position: pos,
+                    before: before,
+                    after: after,
+                    beforeOK: beforeIsWordSeparator,
+                    afterOK: afterIsWordSeparator,
+                    isValidMatch: beforeIsWordSeparator && afterIsWordSeparator
+                });
+                
+                if (beforeIsWordSeparator && afterIsWordSeparator) {
+                    return {
+                        detected: true,
+                        details: `Valid word match found at position ${pos}`,
+                        matchDetails: matchDetails
+                    };
+                }
+            }
+            
             return {
-                detected: regex.test(normContent),
-                regex,
-                normalizedContent: normContent,
-                normalizedKeyword: normKeyword,
-                stepsContent: this.normalize(content, includeDiacritics).steps,
-                stepsKeyword: this.normalize(keyword, includeDiacritics).steps
+                detected: false,
+                details: `Substring found at positions [${positions.join(', ')}] but no valid word boundaries`,
+                matchDetails: matchDetails
             };
         }
 
-
-
-
         checkKeyword(content, keyword, includeDiacritics = false) {
-            const result = this.detectWordBreaking(content, keyword, includeDiacritics);
+            // Normalize both content and keyword
+            const contentResult = this.normalize(content, includeDiacritics);
+            const keywordResult = this.normalize(keyword, includeDiacritics);
+            
+            // Apply Step 7 matching
+            const matchResult = this.step7_exactMatch(contentResult.normalized, keywordResult.normalized);
+            
             return {
-                detected: result.detected,
+                detected: matchResult.detected,
                 keyword: keyword,
                 originalContent: content,
-                normalizedContent: result.normalizedContent,
-                normalizedKeyword: result.normalizedKeyword,
-                pattern: result.regex.source,
+                normalizedContent: contentResult.normalized,
+                normalizedKeyword: keywordResult.normalized,
                 includeDiacritics: includeDiacritics,
-                contentSteps: result.stepsContent,
-                keywordSteps: result.stepsKeyword
+                contentSteps: contentResult.steps,
+                keywordSteps: keywordResult.steps,
+                matchDetails: matchResult.details,
+                boundaryAnalysis: matchResult.matchDetails || []
             };
         }
     }
@@ -468,6 +550,21 @@
         const statusBadgeClass = result.detected ? 'status-detected' : 'status-not-detected';
         const statusIcon = result.detected ? '🚨' : '✅';
 
+        // Create boundary analysis display
+        let boundaryAnalysisHtml = '';
+        if (result.boundaryAnalysis && result.boundaryAnalysis.length > 0) {
+            boundaryAnalysisHtml = `
+                <div class="result-item">
+                    <strong>🔍 Word Boundary Analysis:</strong>
+                    <div class="match-details">
+                        ${result.boundaryAnalysis.map(detail => 
+                            `Position ${detail.position}: before='${detail.before}' after='${detail.after}' | beforeOK=${detail.beforeOK} afterOK=${detail.afterOK} | Valid=${detail.isValidMatch ? '✅' : '❌'}`
+                        ).join('<br>')}
+                    </div>
+                </div>
+            `;
+        }
+
         resultContent.innerHTML = `
             <div class="result-item ${statusClass}">
                 <strong>Kết quả:</strong> ${statusIcon} <span class="status-badge ${statusBadgeClass}">${statusText}</span>
@@ -490,8 +587,10 @@
             </div>
 
             <div class="result-item">
-                <strong>🎯 Regex Pattern:</strong> <code>${result.pattern}</code>
+                <strong>🔍 Match Details:</strong> ${result.matchDetails}
             </div>
+
+            ${boundaryAnalysisHtml}
 
             <div class="result-item">
                 <strong>⚙️ Diacritic Normalization:</strong> ${result.includeDiacritics ? '✅ Enabled' : '❌ Disabled'}
